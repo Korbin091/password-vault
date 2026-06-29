@@ -150,9 +150,11 @@ export async function decryptVault(sync, userKey) {
 /** Full unlock: auth -> sync -> derive key -> decrypt. Returns { items, userKey }. */
 export async function unlockAndSync(masterPassword, config) {
   const { kdf, iterations } = await prelogin(config);
+  console.log("[PV] kdf:", kdf, "iterations:", iterations, "email:", config.email);
   const token = await getToken(config);
   const sync = await fetchSync(token, config);
   const protectedKey = sync.profile?.key || sync.Profile?.Key;
+  console.log("[PV] protectedKey prefix:", protectedKey ? protectedKey.slice(0, 3) : "MISSING");
   if (!protectedKey) throw new Error("Sync response missing the protected user key.");
   const userKey = await deriveUserKey({ email: config.email, masterPassword, kdf, iterations, protectedKey });
   const items = await decryptVault(sync, userKey);
