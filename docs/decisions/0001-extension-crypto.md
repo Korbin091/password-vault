@@ -1,6 +1,9 @@
 # ADR 0001 — Extension sync backend + crypto approach
 
-- **Status:** Proposed (awaiting confirmation)
+- **Status:** Proposed — Decision B deferred ("decide when we hit it"). Live sync
+  was wired using **B1 (hand-rolled Web Crypto)** as the working default behind a
+  pluggable interface in `bitwarden.js`, so swapping to B2 later is localized.
+  The formal lock-in still belongs to the user before relying on it with real data.
 - **Date:** 2026-06-29
 - **Context:** Phase 3 (Chrome extension) needs to turn the master password into
   a decryption key and talk to a Bitwarden-compatible server. Two independent

@@ -23,8 +23,33 @@
       </form>
       <p class="demo-note" id="demo-note" hidden>
         Demo mode — no Bitwarden credentials configured. Any password unlocks a
-        sample vault. Configure <code>.env</code> for live sync.
+        sample vault. Add API credentials in <b>Settings</b> for live sync.
       </p>
+      <button id="open-settings" class="btn-link">⚙ Settings</button>
+    </section>
+
+    <!-- ───────────── Settings ───────────── -->
+    <section id="screen-settings" class="screen" hidden>
+      <header class="topbar">
+        <button id="settings-back" class="btn-icon" title="Back">←</button>
+        <span class="brand">Settings</span>
+        <span></span>
+      </header>
+      <form id="settings-form" class="detail-body" autocomplete="off">
+        <p class="muted" style="margin:0">
+          Personal Bitwarden API key (Settings → Security → API Key). Stored only
+          in this browser's extension storage; the master password is never stored.
+        </p>
+        <label class="field">Email <input id="cfg-email" type="email" autocomplete="off" /></label>
+        <label class="field">Client ID <input id="cfg-clientid" autocomplete="off" placeholder="user.xxxxxxxx…" /></label>
+        <label class="field">Client Secret <input id="cfg-clientsecret" type="password" autocomplete="off" placeholder="(leave blank to keep existing)" /></label>
+        <label class="field">Server URL <span class="muted">(optional — for self-hosted Vaultwarden)</span>
+          <input id="cfg-server" type="url" placeholder="https://vault.example.com" /></label>
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" id="cfg-clear" class="btn-secondary full">Clear credentials (back to demo)</button>
+        <p class="error" id="settings-error" hidden></p>
+        <p class="demo-note" id="settings-saved" hidden>Saved. Lock and unlock with your master password to sync.</p>
+      </form>
     </section>
 
     <!-- ───────────── Main (unlocked) ───────────── -->

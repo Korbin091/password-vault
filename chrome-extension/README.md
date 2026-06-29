@@ -17,8 +17,8 @@ manifest.json     MV3 manifest (popup, service worker, content script, permissio
 popup.html/.css/.js  lock screen, vault list, detail, add form, generator, lock
 background.js     service worker: message router + chrome.alarms auto-lock
 content.js        auto-fill injector (field detection, shadow-DOM aware, MutationObserver)
-vault.js          vault service — demo mode now, live-sync seam marked for wiring
-bitwarden.js      (to add) REST client — auth + sync, per ../shared/API-CONTRACT.md
+vault.js          vault service — demo + live modes, config storage
+bitwarden.js      live REST client — prelogin/token/sync/decrypt + create, per ../shared/API-CONTRACT.md
 crypto.js         Bitwarden-compatible crypto on Web Crypto API (PBKDF2/HKDF/AES-CBC+HMAC)
 generator.js      cryptographically-secure password generator
 storage.js        chrome.storage wrappers (session/local) with in-memory fallback
@@ -28,12 +28,22 @@ icons/            extension icons
 
 No external CDN dependencies — all logic self-contained.
 
-## Demo mode
+## Demo mode vs live sync
 
-With no credentials in `.env`, the extension loads a small **sample vault** so
-the entire UI is usable without a Bitwarden account. A `DEMO` badge is shown and
-nothing is written to any server. Configure `.env` (Phase 0) to switch to live
-sync once that path is wired.
+- **Demo mode (default):** with no credentials configured, the extension loads a
+  small **sample vault** so the whole UI is usable without an account. A `DEMO`
+  badge shows; nothing is written to any server.
+- **Live sync:** open **⚙ Settings** (lock screen) and enter your Bitwarden API
+  key — Email, Client ID, Client Secret (Settings → Security → API Key), and an
+  optional **Server URL** for self-hosted Vaultwarden. Then unlock with your
+  master password. The extension runs `prelogin → token → /api/sync`, derives the
+  key from your master password, and decrypts locally. It re-syncs every 5 min
+  while unlocked. Credentials live in `chrome.storage.local`; the master password
+  is never stored.
+
+> **KDF support:** PBKDF2 accounts (Bitwarden's default) work today. Argon2id
+> accounts fail safe with a clear message until that KDF is added — see
+> [ADR 0001](../docs/decisions/0001-extension-crypto.md).
 
 ## Develop
 

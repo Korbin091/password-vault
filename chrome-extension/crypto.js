@@ -121,4 +121,23 @@ export async function decryptField(encString, userKey) {
   return new TextDecoder().decode(bytes);
 }
 
+/** Encrypt bytes into a type-2 EncString "2.<ivB64>|<ctB64>|<macB64>". */
+export async function encryptEncString(plainBytes, encKey, macKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const aesKey = await subtle.importKey("raw", encKey, { name: "AES-CBC" }, false, ["encrypt"]);
+  const ct = new Uint8Array(await subtle.encrypt({ name: "AES-CBC", iv }, aesKey, plainBytes));
+
+  const macCryptoKey = await subtle.importKey("raw", macKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const data = new Uint8Array(iv.length + ct.length);
+  data.set(iv, 0); data.set(ct, iv.length);
+  const mac = new Uint8Array(await subtle.sign("HMAC", macCryptoKey, data));
+
+  return `2.${bytesToB64(iv)}|${bytesToB64(ct)}|${bytesToB64(mac)}`;
+}
+
+/** Encrypt a UTF-8 string into an EncString using the user key. */
+export async function encryptField(text, userKey) {
+  return encryptEncString(enc.encode(text), userKey.encKey, userKey.macKey);
+}
+
 export const _internal = { bytesToHex, bytesToB64, b64ToBytes };

@@ -140,12 +140,18 @@ Framework "Phase 3: Chrome Extension". Run inside `chrome-extension/`.
       `chrome.storage.local`; auto-lock after 15 min via `chrome.alarms`; master
       password never stored. Crypto primitives (PBKDF2/HKDF/AES-CBC+HMAC) built
       and unit-tested against RFC known-answer vectors.
-- [ ] **Sync (live):** wire `bitwarden.js` — `POST /identity/connect/token` →
-      `GET /api/sync` → decrypt → live `vault.js`. Sync on unlock + every 5 min;
-      status in the footer. **Blocked on:** ADR 0001 decision + Phase 0 creds.
+- [x] **Sync (live) — wired:** `bitwarden.js` does `prelogin` (KDF) →
+      `POST /identity/connect/token` (client_credentials) → `GET /api/sync` →
+      derive key → decrypt → live `vault.js`. Add encrypts + `POST /api/ciphers`.
+      Periodic 5-min sync via `chrome.alarms`; settings panel captures API-key
+      credentials (cloud or self-host `server`). Decrypt pipeline unit-tested
+      against synthetic Bitwarden-shaped data (14 checks). **Remaining:** live
+      verification against a real account (needs your throwaway creds in the
+      settings panel — can't be tested in CI), and **Argon2id** KDF support
+      (PBKDF2 accounts work today; Argon2id fails safe with a clear message).
 - **Acceptance:** the framework's "Chrome Extension" checklist passes (loads
-  unpacked ✅, unlocks ✅, demo flow ✅; live auto-fill + cross-device sync pending
-  live wiring).
+  unpacked ✅, unlocks ✅, demo flow ✅, live sync wired + pipeline-tested ✅;
+  live cross-device round-trip pending a real account + the iPhone app).
 
 ### Phase 4 — Tailscale VPN integration
 Framework "Phase 4: Tailscale VPN Integration". Two sub-tracks.

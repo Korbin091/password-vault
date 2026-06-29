@@ -123,3 +123,6 @@ input:focus, textarea:focus { outline: 2px solid var(--bw-blue); border-color: t
   font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10;
 }
 .toast.show { opacity: .95; }
+
+.btn-link { color: var(--bw-blue); font-size: 13px; text-decoration: underline; padding: 4px; }
+

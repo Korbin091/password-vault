@@ -4,7 +4,7 @@
 import { generatePassword, estimateStrength } from "./generator.js";
 
 const $ = (sel) => document.querySelector(sel);
-const screens = ["lock", "main", "detail", "add"];
+const screens = ["lock", "main", "detail", "add", "settings"];
 
 function show(screen) {
   for (const s of screens) $(`#screen-${s}`).hidden = s !== screen;
@@ -170,6 +170,48 @@ $("#add-form").addEventListener("submit", async (e) => {
   const resp = await send({ type: "addItem", item });
   if (resp.ok) { toast("Saved"); show("main"); renderList(); }
   else { err.textContent = resp.error || "Save failed."; err.hidden = false; }
+});
+
+// ───────────────────────── Settings ─────────────────────────
+async function openSettings() {
+  const resp = await send({ type: "getConfig" });
+  const c = resp.config || {};
+  $("#cfg-email").value = c.email || "";
+  $("#cfg-clientid").value = c.clientId || "";
+  $("#cfg-clientsecret").value = "";
+  $("#cfg-clientsecret").placeholder = c.hasSecret ? "•••••• (leave blank to keep)" : "Client secret";
+  $("#cfg-server").value = c.server || "";
+  $("#settings-error").hidden = true; $("#settings-saved").hidden = true;
+  show("settings");
+}
+$("#open-settings").addEventListener("click", openSettings);
+$("#settings-back").addEventListener("click", () => refreshLockScreen());
+
+$("#settings-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const cur = (await send({ type: "getConfig" })).config || {};
+  const secret = $("#cfg-clientsecret").value.trim();
+  const config = {
+    email: $("#cfg-email").value.trim(),
+    clientId: $("#cfg-clientid").value.trim(),
+    // keep existing secret if field left blank
+    clientSecret: secret || (cur.hasSecret ? "__KEEP__" : ""),
+    server: $("#cfg-server").value.trim(),
+  };
+  const err = $("#settings-error");
+  if (!config.email || !config.clientId || (config.clientSecret === "" )) {
+    err.textContent = "Email, Client ID, and Client Secret are required for live sync.";
+    err.hidden = false; return;
+  }
+  if (config.clientSecret === "__KEEP__") delete config.clientSecret; // background preserves it
+  await send({ type: "saveConfig", config });
+  $("#settings-saved").hidden = false; err.hidden = true;
+});
+
+$("#cfg-clear").addEventListener("click", async () => {
+  await send({ type: "saveConfig", config: { email: "", clientId: "", clientSecret: "", server: "" } });
+  await send({ type: "lock" });
+  refreshLockScreen();
 });
 
 // ───────────────────────── Generator ─────────────────────────
