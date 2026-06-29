@@ -171,6 +171,8 @@ async function openDetail(id) {
   const it = resp.item; if (!it) return;
   $("#detail-title").textContent = it.name;
   const body = $("#detail-body"); body.innerHTML = "";
+  // Name is always shown as the first copyable field
+  body.appendChild(detailRow("Name", it.name));
   if (it.type === "login") {
     if (it.username) body.appendChild(detailRow("Username", it.username));
     if (it.password) body.appendChild(detailRow("Password", it.password, { secret: true }));
@@ -527,6 +529,8 @@ $("#import-go").addEventListener("click", async () => {
     const resp = await send({ type: "addItem", item });
     if (resp.ok) done++;
     else errors.push(`"${item.name}": ${resp.error || "unknown error"}`);
+    // Small delay to avoid hitting Bitwarden's API rate limit
+    await new Promise((r) => setTimeout(r, 120));
   }
 
   progEl.hidden = true;
