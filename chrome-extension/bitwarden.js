@@ -39,8 +39,8 @@ async function postForm(url, params) {
 
 /** KDF parameters for an account (type + iterations). */
 export async function prelogin(config) {
-  const { api } = resolveUrls(config);
-  const res = await fetch(`${api}/accounts/prelogin`, {
+  const { identity } = resolveUrls(config);
+  const res = await fetch(`${identity}/accounts/prelogin`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: config.email }),
