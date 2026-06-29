@@ -380,63 +380,82 @@ function readCsvFile(file) {
 }
 
 /**
- * Parse a password-manager CSV export. Handles quoted fields and matches
- * column names case-insensitively to support Aura, Chrome, Bitwarden,
- * 1Password, LastPass, and generic exports.
+ * Parse a password-manager CSV export.
+ *
+ * Fixes vs. the naive line-split approach:
+ *   1. Strips the UTF-8 BOM that Aura (and many Windows apps) prepend — without
+ *      this the first header column is "﻿name" not "name" and goes undetected.
+ *   2. Parses the entire file character-by-character so quoted fields that
+ *      contain embedded newlines (common in notes) are handled correctly instead
+ *      of being split across records.
+ *
+ * Column matching is case-insensitive and covers the exact Aura header
+ * (name, url, username, password, note, OTPAuth) plus Chrome, Bitwarden,
+ * 1Password, and LastPass variants. Unknown columns (e.g. OTPAuth) are ignored.
  */
 function parsePasswordCsv(text) {
-  const lines = text.split(/\r?\n/);
-  const nonEmpty = lines.filter((l) => l.trim());
-  if (nonEmpty.length < 2) throw new Error("File appears empty or has no data rows.");
+  // 1. Strip UTF-8 BOM (﻿) that Aura prepends
+  text = text.replace(/^﻿/, "");
 
-  const parseLine = (line) => {
-    const fields = [];
-    let cur = "", inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-        else { inQ = !inQ; }
-      } else if (c === "," && !inQ) {
-        fields.push(cur); cur = "";
-      } else {
-        cur += c;
-      }
+  // 2. Full-file character-by-character CSV parser (handles multiline quoted fields)
+  const records = [];
+  let row = [], field = "", inQ = false, i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQ && text[i + 1] === '"') { field += '"'; i += 2; continue; } // escaped quote
+      inQ = !inQ;
+    } else if (c === "," && !inQ) {
+      row.push(field); field = "";
+    } else if (c === "\r" && !inQ) {
+      // skip bare CR (handles \r\n — the \n is consumed in the \n branch)
+    } else if (c === "\n" && !inQ) {
+      row.push(field); field = "";
+      if (row.some((f) => f.trim())) records.push(row);
+      row = [];
+    } else {
+      field += c;
     }
-    fields.push(cur);
-    return fields;
-  };
+    i++;
+  }
+  // flush last record if file doesn't end with newline
+  row.push(field);
+  if (row.some((f) => f.trim())) records.push(row);
 
-  const headers = parseLine(nonEmpty[0]).map((h) => h.trim().toLowerCase());
+  if (records.length < 2) throw new Error("File appears empty or has no data rows.");
+
+  const headers = records[0].map((h) => h.trim().toLowerCase());
 
   const col = (...names) => {
     for (const n of names) {
-      const i = headers.indexOf(n);
-      if (i >= 0) return i;
+      const idx = headers.indexOf(n);
+      if (idx >= 0) return idx;
     }
     return -1;
   };
 
+  // Aura: name, url, username, password, note, OTPAuth
   const iName = col("name", "title", "service", "account", "site name", "label");
   const iUrl  = col("url", "website", "uri", "login_uri", "site", "web site", "origin");
   const iUser = col("username", "login", "email", "user", "login_username", "login name", "user name");
   const iPass = col("password", "pass", "login_password", "pwd", "secret");
-  const iNote = col("notes", "note", "comment", "comments", "extra", "description");
+  const iNote = col("note", "notes", "comment", "comments", "extra", "description");
 
   if (iName < 0 && iUser < 0) {
-    throw new Error("Couldn't find a name or username column. Make sure the CSV has a header row.");
+    throw new Error(
+      `Couldn't find a name or username column. Headers found: ${headers.join(", ")}`
+    );
   }
 
   const items = [];
-  for (let i = 1; i < nonEmpty.length; i++) {
-    const f = parseLine(nonEmpty[i]);
+  for (let r = 1; r < records.length; r++) {
+    const f = records[r];
     const name = (iName >= 0 ? f[iName] || "" : "").trim();
     const user = (iUser >= 0 ? f[iUser] || "" : "").trim();
     const displayName = name || user || `Import ${items.length + 1}`;
     const url = (iUrl >= 0 ? f[iUrl] || "" : "").trim();
     const pass = (iPass >= 0 ? f[iPass] || "" : "").trim();
     const note = (iNote >= 0 ? f[iNote] || "" : "").trim();
-    // Skip rows that look empty
     if (!displayName && !url && !pass) continue;
     items.push({
       type: "login",
