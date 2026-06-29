@@ -371,11 +371,17 @@ function readCsvFile(file) {
   reader.onload = (e) => {
     try {
       importParsedItems = parsePasswordCsv(e.target.result);
+      if (!importParsedItems.length) {
+        toast("No passwords found in this file.");
+        return;
+      }
       showImportPreview();
     } catch (err) {
-      toast("Could not parse CSV: " + err.message);
+      toast("Parse error: " + err.message);
+      console.error("[PV] CSV parse error:", err);
     }
   };
+  reader.onerror = () => toast("Could not read the file.");
   reader.readAsText(file, "utf-8");
 }
 
@@ -499,6 +505,14 @@ $("#import-cancel").addEventListener("click", () => {
 
 $("#import-go").addEventListener("click", async () => {
   if (!importParsedItems.length) return;
+
+  // Vault must be unlocked — import can be reached from Settings (before unlock)
+  const state = await send({ type: "getState" });
+  if (!state.unlocked) {
+    toast("Unlock your vault first, then import.");
+    return;
+  }
+
   const total = importParsedItems.length;
   const progEl = $("#import-progress");
   const goBtn = $("#import-go");
@@ -506,12 +520,13 @@ $("#import-go").addEventListener("click", async () => {
   $("#import-preview").hidden = true;
   progEl.hidden = false;
 
-  let done = 0, failed = 0;
+  let done = 0;
+  const errors = [];
   for (const item of importParsedItems) {
     progEl.textContent = `Importing… ${done + 1} / ${total}`;
     const resp = await send({ type: "addItem", item });
     if (resp.ok) done++;
-    else failed++;
+    else errors.push(`"${item.name}": ${resp.error || "unknown error"}`);
   }
 
   progEl.hidden = true;
@@ -519,12 +534,16 @@ $("#import-go").addEventListener("click", async () => {
   importParsedItems = [];
   $("#import-zone").hidden = false;
 
-  const msg = failed
-    ? `Imported ${done}, failed ${failed}`
-    : `✓ Imported ${done} password${done !== 1 ? "s" : ""}`;
-  toast(msg);
+  if (errors.length) {
+    // Show first error so the user knows what went wrong
+    toast(`Imported ${done}, failed ${errors.length}: ${errors[0]}`);
+    console.error("[PV] import errors:", errors);
+  } else {
+    toast(`✓ Imported ${done} password${done !== 1 ? "s" : ""}`);
+  }
 
   if (importReturnScreen === "main") { show("main"); renderList(); }
+  else if (state.unlocked) { show("main"); renderList(); }
   else { openSettings(); }
 });
 
