@@ -17,6 +17,12 @@ const KDF_ARGON2ID = 1;
 // Bitwarden cipher.type -> our item.type
 const CIPHER_TYPE = { 1: "login", 2: "note", 3: "card" };
 
+// Required by Bitwarden servers on every request.
+const BW_CLIENT_HEADERS = {
+  "Bitwarden-Client-Name": "browser",
+  "Bitwarden-Client-Version": "2024.12.0",
+};
+
 /** Resolve identity + api base URLs from config. */
 export function resolveUrls(config) {
   if (config.server) {
@@ -30,7 +36,7 @@ async function postForm(url, params) {
   const body = new URLSearchParams(params).toString();
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded", ...BW_CLIENT_HEADERS },
     body,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}: ${await res.text().catch(() => "")}`);
@@ -42,7 +48,7 @@ export async function prelogin(config) {
   const { identity } = resolveUrls(config);
   const res = await fetch(`${identity}/accounts/prelogin`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...BW_CLIENT_HEADERS },
     body: JSON.stringify({ email: config.email }),
   });
   if (!res.ok) throw new Error(`prelogin failed: HTTP ${res.status}`);
@@ -73,7 +79,7 @@ export async function getToken(config) {
 export async function fetchSync(token, config) {
   const { api } = resolveUrls(config);
   const res = await fetch(`${api}/sync?excludeDomains=true`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...BW_CLIENT_HEADERS },
   });
   if (!res.ok) throw new Error(`sync failed: HTTP ${res.status}`);
   return res.json();
@@ -168,7 +174,7 @@ export async function createLogin(item, userKey, token, config) {
   const { api } = resolveUrls(config);
   const res = await fetch(`${api}/ciphers`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...BW_CLIENT_HEADERS },
     body: JSON.stringify(await buildLoginPayload(item, userKey)),
   });
   if (!res.ok) throw new Error(`create failed: HTTP ${res.status}`);
@@ -180,7 +186,7 @@ export async function updateLogin(item, userKey, token, config) {
   const { api } = resolveUrls(config);
   const res = await fetch(`${api}/ciphers/${item.id}`, {
     method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...BW_CLIENT_HEADERS },
     body: JSON.stringify(await buildLoginPayload(item, userKey)),
   });
   if (!res.ok) throw new Error(`update failed: HTTP ${res.status}`);
@@ -192,7 +198,7 @@ export async function deleteCipher(id, token, config) {
   const { api } = resolveUrls(config);
   const res = await fetch(`${api}/ciphers/${id}`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...BW_CLIENT_HEADERS },
   });
   if (!res.ok && res.status !== 404) throw new Error(`delete failed: HTTP ${res.status}`);
   return true;
