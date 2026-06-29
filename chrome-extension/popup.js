@@ -4,7 +4,7 @@
 import { generatePassword, estimateStrength } from "./generator.js";
 
 const $ = (sel) => document.querySelector(sel);
-const screens = ["lock", "main", "detail", "add", "settings", "import"];
+const screens = ["lock", "main", "detail", "add", "settings"];
 
 function show(screen) {
   for (const s of screens) $(`#screen-${s}`).hidden = s !== screen;
@@ -135,7 +135,6 @@ async function renderList() {
 }
 
 $("#btn-add").addEventListener("click", () => openAdd());
-$("#btn-import-quick").addEventListener("click", () => openImport("main"));
 
 // ─── Detail View ──────────────────────────────────────────────
 function detailRow(label, value, { secret = false } = {}) {
@@ -272,7 +271,6 @@ async function openSettings() {
 
 $("#open-settings").addEventListener("click", openSettings);
 $("#settings-back").addEventListener("click", () => refreshLockScreen());
-$("#open-import").addEventListener("click", () => openImport("settings"));
 
 $("#settings-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -328,228 +326,6 @@ function regenerate() {
   .forEach((id) => $(`#${id}`).addEventListener("input", regenerate));
 $("#gen-refresh").addEventListener("click", regenerate);
 $("#gen-copy").addEventListener("click", () => copy($("#gen-value").textContent, "Password copied"));
-
-// ─── Import ───────────────────────────────────────────────────
-let importReturnScreen = "settings";
-let importParsedItems = [];
-
-function openImport(returnTo = "settings") {
-  importReturnScreen = returnTo;
-  importParsedItems = [];
-  $("#import-zone").hidden = false;
-  $("#import-zone").classList.remove("dragover");
-  $("#import-preview").hidden = true;
-  $("#import-progress").hidden = true;
-  $("#import-progress").textContent = "";
-  show("import");
-}
-
-$("#import-back").addEventListener("click", () => {
-  if (importReturnScreen === "main") show("main");
-  else openSettings();
-});
-
-// Click on drop zone opens file picker
-$("#import-zone").addEventListener("click", () => $("#import-file").click());
-
-// Drag-and-drop
-const zone = $("#import-zone");
-zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("dragover"); });
-zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
-zone.addEventListener("drop", (e) => {
-  e.preventDefault(); zone.classList.remove("dragover");
-  const f = e.dataTransfer.files[0];
-  if (f) readCsvFile(f);
-});
-
-$("#import-file").addEventListener("change", (e) => {
-  const f = e.target.files[0];
-  if (f) readCsvFile(f);
-  e.target.value = ""; // reset so same file can be re-selected
-});
-
-function readCsvFile(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      importParsedItems = parsePasswordCsv(e.target.result);
-      if (!importParsedItems.length) {
-        toast("No passwords found in this file.");
-        return;
-      }
-      showImportPreview();
-    } catch (err) {
-      toast("Parse error: " + err.message);
-      console.error("[PV] CSV parse error:", err);
-    }
-  };
-  reader.onerror = () => toast("Could not read the file.");
-  reader.readAsText(file, "utf-8");
-}
-
-/**
- * Parse a password-manager CSV export.
- *
- * Fixes vs. the naive line-split approach:
- *   1. Strips the UTF-8 BOM that Aura (and many Windows apps) prepend — without
- *      this the first header column is "﻿name" not "name" and goes undetected.
- *   2. Parses the entire file character-by-character so quoted fields that
- *      contain embedded newlines (common in notes) are handled correctly instead
- *      of being split across records.
- *
- * Column matching is case-insensitive and covers the exact Aura header
- * (name, url, username, password, note, OTPAuth) plus Chrome, Bitwarden,
- * 1Password, and LastPass variants. Unknown columns (e.g. OTPAuth) are ignored.
- */
-function parsePasswordCsv(text) {
-  // 1. Strip UTF-8 BOM (﻿) that Aura prepends
-  text = text.replace(/^﻿/, "");
-
-  // 2. Full-file character-by-character CSV parser (handles multiline quoted fields)
-  const records = [];
-  let row = [], field = "", inQ = false, i = 0;
-  while (i < text.length) {
-    const c = text[i];
-    if (c === '"') {
-      if (inQ && text[i + 1] === '"') { field += '"'; i += 2; continue; } // escaped quote
-      inQ = !inQ;
-    } else if (c === "," && !inQ) {
-      row.push(field); field = "";
-    } else if (c === "\r" && !inQ) {
-      // skip bare CR (handles \r\n — the \n is consumed in the \n branch)
-    } else if (c === "\n" && !inQ) {
-      row.push(field); field = "";
-      if (row.some((f) => f.trim())) records.push(row);
-      row = [];
-    } else {
-      field += c;
-    }
-    i++;
-  }
-  // flush last record if file doesn't end with newline
-  row.push(field);
-  if (row.some((f) => f.trim())) records.push(row);
-
-  if (records.length < 2) throw new Error("File appears empty or has no data rows.");
-
-  const headers = records[0].map((h) => h.trim().toLowerCase());
-
-  const col = (...names) => {
-    for (const n of names) {
-      const idx = headers.indexOf(n);
-      if (idx >= 0) return idx;
-    }
-    return -1;
-  };
-
-  // Aura: name, url, username, password, note, OTPAuth
-  const iName = col("name", "title", "service", "account", "site name", "label");
-  const iUrl  = col("url", "website", "uri", "login_uri", "site", "web site", "origin");
-  const iUser = col("username", "login", "email", "user", "login_username", "login name", "user name");
-  const iPass = col("password", "pass", "login_password", "pwd", "secret");
-  const iNote = col("note", "notes", "comment", "comments", "extra", "description");
-
-  if (iName < 0 && iUser < 0) {
-    throw new Error(
-      `Couldn't find a name or username column. Headers found: ${headers.join(", ")}`
-    );
-  }
-
-  const items = [];
-  for (let r = 1; r < records.length; r++) {
-    const f = records[r];
-    const name = (iName >= 0 ? f[iName] || "" : "").trim();
-    const user = (iUser >= 0 ? f[iUser] || "" : "").trim();
-    const displayName = name || user || `Import ${items.length + 1}`;
-    const url = (iUrl >= 0 ? f[iUrl] || "" : "").trim();
-    const pass = (iPass >= 0 ? f[iPass] || "" : "").trim();
-    const note = (iNote >= 0 ? f[iNote] || "" : "").trim();
-    if (!displayName && !url && !pass) continue;
-    items.push({
-      type: "login",
-      name: displayName,
-      username: user,
-      password: pass,
-      uris: url ? [url] : [],
-      notes: note,
-      favorite: false,
-    });
-  }
-  if (!items.length) throw new Error("No password entries found in this file.");
-  return items;
-}
-
-function showImportPreview() {
-  const count = importParsedItems.length;
-  $("#import-count").textContent = count;
-  const previewList = $("#import-preview-list");
-  previewList.innerHTML = "";
-  const show5 = importParsedItems.slice(0, 5);
-  for (const it of show5) {
-    const d = document.createElement("div");
-    d.textContent = `${ICONS.login} ${it.name}${it.username ? " — " + it.username : ""}`;
-    previewList.appendChild(d);
-  }
-  if (count > 5) {
-    const more = document.createElement("div");
-    more.textContent = `…and ${count - 5} more`;
-    previewList.appendChild(more);
-  }
-  $("#import-preview").hidden = false;
-  $("#import-zone").hidden = true;
-}
-
-$("#import-cancel").addEventListener("click", () => {
-  importParsedItems = [];
-  $("#import-preview").hidden = true;
-  $("#import-zone").hidden = false;
-});
-
-$("#import-go").addEventListener("click", async () => {
-  if (!importParsedItems.length) return;
-
-  // Vault must be unlocked — import can be reached from Settings (before unlock)
-  const state = await send({ type: "getState" });
-  if (!state.unlocked) {
-    toast("Unlock your vault first, then import.");
-    return;
-  }
-
-  const total = importParsedItems.length;
-  const progEl = $("#import-progress");
-  const goBtn = $("#import-go");
-  goBtn.disabled = true;
-  $("#import-preview").hidden = true;
-  progEl.hidden = false;
-
-  let done = 0;
-  const errors = [];
-  for (const item of importParsedItems) {
-    progEl.textContent = `Importing… ${done + 1} / ${total}`;
-    const resp = await send({ type: "addItem", item });
-    if (resp.ok) done++;
-    else errors.push(`"${item.name}": ${resp.error || "unknown error"}`);
-    // Small delay to avoid hitting Bitwarden's API rate limit
-    await new Promise((r) => setTimeout(r, 120));
-  }
-
-  progEl.hidden = true;
-  goBtn.disabled = false;
-  importParsedItems = [];
-  $("#import-zone").hidden = false;
-
-  if (errors.length) {
-    // Show first error so the user knows what went wrong
-    toast(`Imported ${done}, failed ${errors.length}: ${errors[0]}`);
-    console.error("[PV] import errors:", errors);
-  } else {
-    toast(`✓ Imported ${done} password${done !== 1 ? "s" : ""}`);
-  }
-
-  if (importReturnScreen === "main") { show("main"); renderList(); }
-  else if (state.unlocked) { show("main"); renderList(); }
-  else { openSettings(); }
-});
 
 // ─── Boot ─────────────────────────────────────────────────────
 refreshLockScreen();

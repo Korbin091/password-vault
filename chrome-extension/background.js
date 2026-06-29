@@ -4,6 +4,9 @@
 
 import * as vault from "./vault.js";
 
+// Open the side panel when the toolbar icon is clicked
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
 const AUTO_LOCK_ALARM = "auto-lock";
 const SYNC_ALARM = "periodic-sync";
 const AUTO_LOCK_MINUTES = 15; // see ../docs/security-model.md
@@ -92,11 +95,19 @@ const handlers = {
   },
 };
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // FAB button in content script asks us to open the side panel
+  if (msg?.type === "openSidePanel") {
+    if (sender.tab?.id) {
+      chrome.sidePanel.open({ tabId: sender.tab.id }).catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
   const handler = handlers[msg?.type];
   if (!handler) { sendResponse({ ok: false, error: `Unknown message: ${msg?.type}` }); return false; }
   // Reschedule auto-lock on every authenticated interaction (except state polls).
   if (msg.type !== "getState") touch();
-  handler(msg).then(sendResponse).catch((e) => sendResponse({ ok: false, error: e.message }));
+  handler(msg, sender).then(sendResponse).catch((e) => sendResponse({ ok: false, error: e.message }));
   return true; // async response
 });

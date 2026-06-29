@@ -69,13 +69,6 @@
         ✓ Saved. Lock and unlock with your master password to sync.
       </p>
 
-      <p class="settings-section" style="margin-top:16px">Import Passwords</p>
-      <p class="muted" style="font-size:12px;margin:0">
-        Import from Aura, Chrome, Bitwarden, or any password manager that exports CSV.
-      </p>
-      <button type="button" id="open-import" class="btn-secondary" style="margin-top:10px">
-        ↑ Import from CSV
-      </button>
     </form>
   </section>
 
@@ -117,7 +110,6 @@
       <ul id="item-list" class="item-list"></ul>
       <div class="vault-footer">
         <button id="btn-add" class="btn-primary">+ Add password</button>
-        <button id="btn-import-quick" class="btn-secondary-icon" title="Import CSV">↑</button>
       </div>
     </div>
 
@@ -178,39 +170,6 @@
       <button type="submit" class="btn-primary">Save</button>
       <p class="error" id="add-error" hidden></p>
     </form>
-  </section>
-
-  <!-- ────────────── Import Screen ────────────── -->
-  <section id="screen-import" class="screen" hidden>
-    <header class="topbar">
-      <button id="import-back" class="topbar-back" title="Back">←</button>
-      <div class="topbar-brand"><span class="topbar-title">Import Passwords</span></div>
-      <span></span>
-    </header>
-    <div class="detail-body">
-      <div class="import-zone" id="import-zone">
-        <div class="import-zone-icon">📂</div>
-        <h3>Drop your CSV file here</h3>
-        <p>Or click to select — works with Aura, Chrome, Bitwarden, 1Password, LastPass</p>
-        <input type="file" id="import-file" accept=".csv,text/csv" style="display:none" />
-      </div>
-
-      <div id="import-preview" hidden>
-        <div class="import-preview-card">
-          Found <span id="import-count" class="import-count">0</span> passwords ready to import
-          <div id="import-preview-list"></div>
-        </div>
-        <button id="import-go" class="btn-primary" style="margin-top:10px">Import All</button>
-        <button id="import-cancel" class="btn-ghost" style="width:100%;margin-top:6px">Cancel</button>
-      </div>
-
-      <div id="import-progress" hidden class="import-progress"></div>
-
-      <div class="import-help">
-        <strong>How to export from Aura:</strong><br>
-        Aura app → Settings → Privacy &amp; Security → Export → Passwords → Save as CSV
-      </div>
-    </div>
   </section>
 
 </div>

@@ -1,18 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Password Vault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Personal, end-to-end encrypted password manager that syncs with Bitwarden. Personal use only.",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Password Vault",
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "icons": {
     "16": "icons/icon-16.png",
@@ -29,7 +31,7 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
       "run_at": "document_idle",
-      "all_frames": true
+      "all_frames": false
     }
   ],
   "permissions": [
@@ -37,7 +39,8 @@
     "alarms",
     "activeTab",
     "scripting",
-    "clipboardWrite"
+    "clipboardWrite",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://api.bitwarden.com/*",
