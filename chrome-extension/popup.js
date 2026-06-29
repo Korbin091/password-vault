@@ -101,6 +101,8 @@ async function renderList() {
 }
 
 $("#btn-add").addEventListener("click", () => {
+  editingId = null;
+  document.querySelector("#screen-add .brand").textContent = "Add login";
   $("#add-form").reset(); $("#add-error").hidden = true; show("add"); $("#add-name").focus();
 });
 
@@ -129,9 +131,12 @@ function detailRow(label, value, { secret = false } = {}) {
   return row;
 }
 
+let currentDetailItem = null;
+
 async function openDetail(id) {
   const resp = await send({ type: "getItem", id });
   const it = resp.item; if (!it) return;
+  currentDetailItem = it;
   $("#detail-title").textContent = it.name;
   const body = $("#detail-body"); body.innerHTML = "";
   if (it.type === "login") {
@@ -146,13 +151,51 @@ async function openDetail(id) {
     if (c.code) body.appendChild(detailRow("Code", c.code, { secret: true }));
   }
   if (it.notes) body.appendChild(detailRow("Notes", it.notes));
+
+  // Edit / Delete actions (logins only for edit; delete for any).
+  const actions = document.createElement("div");
+  actions.className = "pw-row"; actions.style.marginTop = "8px";
+  if (it.type === "login") {
+    const edit = document.createElement("button");
+    edit.className = "btn-secondary"; edit.style.flex = "1"; edit.textContent = "Edit";
+    edit.addEventListener("click", () => openEdit(it));
+    actions.appendChild(edit);
+  }
+  const del = document.createElement("button");
+  del.className = "btn-secondary"; del.style.flex = "1"; del.style.color = "var(--danger)";
+  del.style.borderColor = "var(--danger)"; del.textContent = "Delete";
+  del.addEventListener("click", () => deleteCurrent(it));
+  actions.appendChild(del);
+  body.appendChild(actions);
+
   show("detail");
+}
+
+async function deleteCurrent(it) {
+  if (!confirm(`Delete "${it.name}"? This cannot be undone.`)) return;
+  const resp = await send({ type: "deleteItem", id: it.id });
+  if (resp.ok) { toast("Deleted"); show("main"); renderList(); }
+  else { toast(resp.error || "Delete failed"); }
 }
 
 $("#detail-back").addEventListener("click", () => show("main"));
 $("#add-back").addEventListener("click", () => show("main"));
 
-// ───────────────────────── Add ─────────────────────────
+// ───────────────────────── Add / Edit ─────────────────────────
+let editingId = null;
+
+function openEdit(it) {
+  editingId = it.id;
+  $("#add-form").reset(); $("#add-error").hidden = true;
+  document.querySelector("#screen-add .brand").textContent = "Edit login";
+  $("#add-name").value = it.name || "";
+  $("#add-uri").value = (it.uris && it.uris[0]) || "";
+  $("#add-username").value = it.username || "";
+  $("#add-password").value = it.password || "";
+  $("#add-notes").value = it.notes || "";
+  show("add"); $("#add-name").focus();
+}
+
 $("#add-gen").addEventListener("click", () => { $("#add-password").value = generatePassword(readGenOptions()); });
 
 $("#add-form").addEventListener("submit", async (e) => {
@@ -167,8 +210,10 @@ $("#add-form").addEventListener("submit", async (e) => {
     uris: uri ? [uri] : [],
     notes: $("#add-notes").value.trim(),
   };
-  const resp = await send({ type: "addItem", item });
-  if (resp.ok) { toast("Saved"); show("main"); renderList(); }
+  const resp = editingId
+    ? await send({ type: "updateItem", id: editingId, item })
+    : await send({ type: "addItem", item });
+  if (resp.ok) { toast(editingId ? "Updated" : "Saved"); editingId = null; show("main"); renderList(); }
   else { err.textContent = resp.error || "Save failed."; err.hidden = false; }
 });
 

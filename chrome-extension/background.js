@@ -80,6 +80,16 @@ const handlers = {
     try { return { ok: true, item: await vault.addItem(item) }; }
     catch (e) { return { ok: false, error: e.message }; }
   },
+
+  async updateItem({ id, item }) {
+    try { return { ok: true, item: await vault.updateItem(id, item) }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  },
+
+  async deleteItem({ id }) {
+    try { await vault.deleteItem(id); return { ok: true }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  },
 };
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

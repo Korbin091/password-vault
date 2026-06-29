@@ -146,10 +146,9 @@ export async function unlockAndSync(masterPassword, config) {
   return { items, token, userKey };
 }
 
-/** Encrypt + create a new login cipher. Returns the server cipher. */
-export async function createLogin(item, userKey, token, config) {
-  const { api } = resolveUrls(config);
-  const payload = {
+/** Encrypt a login item into a Bitwarden cipher payload. */
+async function buildLoginPayload(item, userKey) {
+  return {
     type: 1,
     name: await encryptField(item.name, userKey),
     notes: item.notes ? await encryptField(item.notes, userKey) : null,
@@ -162,11 +161,39 @@ export async function createLogin(item, userKey, token, config) {
       }))),
     },
   };
+}
+
+/** Encrypt + create a new login cipher. Returns the server cipher. */
+export async function createLogin(item, userKey, token, config) {
+  const { api } = resolveUrls(config);
   const res = await fetch(`${api}/ciphers`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(await buildLoginPayload(item, userKey)),
   });
   if (!res.ok) throw new Error(`create failed: HTTP ${res.status}`);
   return res.json();
+}
+
+/** Encrypt + update an existing login cipher. Returns the server cipher. */
+export async function updateLogin(item, userKey, token, config) {
+  const { api } = resolveUrls(config);
+  const res = await fetch(`${api}/ciphers/${item.id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(await buildLoginPayload(item, userKey)),
+  });
+  if (!res.ok) throw new Error(`update failed: HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Delete a cipher. Treats 404 as already-gone. */
+export async function deleteCipher(id, token, config) {
+  const { api } = resolveUrls(config);
+  const res = await fetch(`${api}/ciphers/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`delete failed: HTTP ${res.status}`);
+  return true;
 }

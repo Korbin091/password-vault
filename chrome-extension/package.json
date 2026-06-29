@@ -5,6 +5,6 @@
   "description": "Personal password manager Chrome extension (Manifest V3) that syncs with Bitwarden.",
   "type": "module",
   "scripts": {
-    "test": "node test/crypto.test.mjs && node test/generator.test.mjs && node test/bitwarden.test.mjs"
+    "test": "node test/crypto.test.mjs && node test/generator.test.mjs && node test/bitwarden.test.mjs && node test/vault.test.mjs"
   }
 }

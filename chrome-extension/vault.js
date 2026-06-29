@@ -197,3 +197,42 @@ export async function addItem(partial) {
   await session.set(SESSION_VAULT, items);
   return item;
 }
+
+async function liveContext() {
+  const bw = await import("./bitwarden.js");
+  const config = await getConfig();
+  const token = await session.get(SESSION_TOKEN);
+  const stored = await session.get(SESSION_USERKEY);
+  const userKey = { encKey: b64ToBytes(stored.encKey), macKey: b64ToBytes(stored.macKey) };
+  return { bw, config, token, userKey };
+}
+
+/** Update an existing item (login fields). */
+export async function updateItem(id, partial) {
+  const items = await requireUnlocked();
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx < 0) throw new Error("Item not found.");
+  const merged = { ...items[idx], ...partial, id, revisionDate: new Date().toISOString() };
+  if (!merged.name) throw new Error("Name is required.");
+
+  if (!(await isDemo())) {
+    const { bw, config, token, userKey } = await liveContext();
+    const updated = await bw.updateLogin(merged, userKey, token, config);
+    merged.revisionDate = updated.revisionDate || updated.RevisionDate || merged.revisionDate;
+  }
+
+  items[idx] = merged;
+  await session.set(SESSION_VAULT, items);
+  return merged;
+}
+
+/** Delete an item. */
+export async function deleteItem(id) {
+  const items = await requireUnlocked();
+  if (!(await isDemo())) {
+    const { bw, config, token } = await liveContext();
+    await bw.deleteCipher(id, token, config);
+  }
+  await session.set(SESSION_VAULT, items.filter((i) => i.id !== id));
+  return true;
+}
