@@ -184,16 +184,26 @@ async function buildLoginPayload(item, userKey) {
   };
 }
 
-/** Encrypt + create a new login cipher. Returns the server cipher. */
+/** Encrypt + create a new login cipher. Retries once on HTTP 429. */
 export async function createLogin(item, userKey, token, config) {
   const { api } = resolveUrls(config);
-  const res = await fetch(`${api}/ciphers`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...BW_CLIENT_HEADERS },
-    body: JSON.stringify(await buildLoginPayload(item, userKey)),
-  });
-  if (!res.ok) throw new Error(`create failed: HTTP ${res.status}`);
-  return res.json();
+  const payload = JSON.stringify(await buildLoginPayload(item, userKey));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`${api}/ciphers`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...BW_CLIENT_HEADERS },
+      body: payload,
+    });
+    if (res.ok) return res.json();
+    if (res.status === 429) {
+      // Rate limited — back off and retry
+      const retryAfter = Number(res.headers.get("Retry-After") || 0) || (attempt + 1) * 3;
+      await new Promise((r) => setTimeout(r, retryAfter * 1000));
+      continue;
+    }
+    throw new Error(`create failed: HTTP ${res.status}`);
+  }
+  throw new Error("create failed: rate limit after 3 attempts");
 }
 
 /** Encrypt + update an existing login cipher. Returns the server cipher. */
