@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Vault</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- ───────────── Lock screen ───────────── -->
+    <section id="screen-lock" class="screen">
+      <div class="lock-hero">
+        <div class="logo">🔐</div>
+        <h1>Password Vault</h1>
+        <p class="muted" id="lock-subtitle">Enter your master password to unlock.</p>
+      </div>
+      <form id="unlock-form" autocomplete="off">
+        <input id="master-password" type="password" placeholder="Master password"
+               autocomplete="off" autofocus />
+        <button type="submit" class="btn-primary">Unlock</button>
+        <p class="error" id="unlock-error" hidden></p>
+      </form>
+      <p class="demo-note" id="demo-note" hidden>
+        Demo mode — no Bitwarden credentials configured. Any password unlocks a
+        sample vault. Configure <code>.env</code> for live sync.
+      </p>
+    </section>
+
+    <!-- ───────────── Main (unlocked) ───────────── -->
+    <section id="screen-main" class="screen" hidden>
+      <header class="topbar">
+        <span class="brand">🔐 Vault <span id="demo-badge" class="badge" hidden>DEMO</span></span>
+        <button id="btn-lock" class="btn-icon" title="Lock now">🔒</button>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="vault">Vault</button>
+        <button class="tab" data-tab="generator">Generator</button>
+      </nav>
+
+      <!-- Vault tab -->
+      <div id="tab-vault" class="tab-panel">
+        <input id="search" type="search" placeholder="Search…" />
+        <div class="filters" id="filters">
+          <button class="chip active" data-cat="all">All</button>
+          <button class="chip" data-cat="login">Logins</button>
+          <button class="chip" data-cat="card">Cards</button>
+          <button class="chip" data-cat="note">Notes</button>
+        </div>
+        <ul id="item-list" class="item-list"></ul>
+        <button id="btn-add" class="btn-secondary full">+ Add item</button>
+      </div>
+
+      <!-- Generator tab -->
+      <div id="tab-generator" class="tab-panel" hidden>
+        <div class="gen-output">
+          <code id="gen-value">&nbsp;</code>
+          <button id="gen-copy" class="btn-icon" title="Copy">📋</button>
+          <button id="gen-refresh" class="btn-icon" title="Regenerate">🔄</button>
+        </div>
+        <p class="strength"><span id="gen-strength">—</span></p>
+        <label class="row">Length <span id="gen-len-val">20</span>
+          <input id="gen-length" type="range" min="4" max="128" value="20" />
+        </label>
+        <label class="row"><input id="gen-upper" type="checkbox" checked /> Uppercase (A–Z)</label>
+        <label class="row"><input id="gen-lower" type="checkbox" checked /> Lowercase (a–z)</label>
+        <label class="row"><input id="gen-numbers" type="checkbox" checked /> Numbers (0–9)</label>
+        <label class="row"><input id="gen-symbols" type="checkbox" checked /> Symbols (!@#…)</label>
+        <label class="row"><input id="gen-ambiguous" type="checkbox" checked /> Avoid ambiguous (l, I, O, 0, 1)</label>
+      </div>
+
+      <footer class="statusbar">
+        <span id="sync-status">—</span>
+      </footer>
+    </section>
+
+    <!-- ───────────── Detail view ───────────── -->
+    <section id="screen-detail" class="screen" hidden>
+      <header class="topbar">
+        <button id="detail-back" class="btn-icon" title="Back">←</button>
+        <span class="brand" id="detail-title">Item</span>
+        <span></span>
+      </header>
+      <div id="detail-body" class="detail-body"></div>
+    </section>
+
+    <!-- ───────────── Add form ───────────── -->
+    <section id="screen-add" class="screen" hidden>
+      <header class="topbar">
+        <button id="add-back" class="btn-icon" title="Back">←</button>
+        <span class="brand">Add login</span>
+        <span></span>
+      </header>
+      <form id="add-form" class="detail-body" autocomplete="off">
+        <label class="field">Name <input id="add-name" required /></label>
+        <label class="field">Website (URL) <input id="add-uri" type="url" placeholder="https://" /></label>
+        <label class="field">Username <input id="add-username" autocomplete="off" /></label>
+        <label class="field">Password
+          <span class="pw-row">
+            <input id="add-password" type="text" autocomplete="off" />
+            <button type="button" id="add-gen" class="btn-icon" title="Generate">🎲</button>
+          </span>
+        </label>
+        <label class="field">Notes <textarea id="add-notes" rows="3"></textarea></label>
+        <button type="submit" class="btn-primary">Save</button>
+        <p class="error" id="add-error" hidden></p>
+      </form>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

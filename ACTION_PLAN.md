@@ -124,23 +124,28 @@ Framework "Phase 2: iPhone App". Run inside `ios-app/`.
   real device (builds on iPhone 15 sim iOS 17, Face ID prompts, vault syncs,
   copy works, auto-lock works, new entry round-trips to the backend).
 
-### Phase 3 — Chrome extension  *(fully buildable here)*
+### Phase 3 — Chrome extension  *(fully buildable here — IN PROGRESS)*
 Framework "Phase 3: Chrome Extension". Run inside `chrome-extension/`.
-- [ ] **Files:** `manifest.json` (MV3), `popup.{html,js,css}`, `background.js`
-      (service worker), `content.js` (auto-fill), `bitwarden.js` (API module).
-      No external CDN deps — all logic self-contained.
-- [ ] **Popup:** master-password lock screen → searchable vault list → item
-      detail with copy buttons → Add New → Generator tab → Lock button.
-- [ ] **Auto-fill:** content script detects user/pass fields (incl. shadow DOM /
-      delayed render), shows a Bitwarden icon, click → matching logins → fills.
-- [ ] **Security:** session key in `chrome.storage.session` (cleared on browser
-      close); vault encrypted in `chrome.storage.local`; auto-lock after 15 min
-      via `chrome.alarms`; master password used only to derive the key, never stored.
-- [ ] **Sync:** same backend + credentials as the app; sync on unlock + every 5
-      min; status + last-updated in the popup footer.
+- [x] **Files:** `manifest.json` (MV3), `popup.{html,js,css}`, `background.js`
+      (service worker), `content.js` (auto-fill), plus `crypto.js`, `vault.js`,
+      `storage.js`, `generator.js`. No external CDN deps — all self-contained.
+      *(`bitwarden.js` live REST client still to add — gated on ADR 0001.)*
+- [x] **Popup:** master-password lock screen → searchable vault list → category
+      filters → item detail with reveal + copy buttons → Add New → Generator tab
+      → Lock button. Verified end-to-end in Chromium (15/15 checks, 0 errors).
+- [x] **Auto-fill:** content script detects user/pass fields (shadow-DOM aware,
+      `MutationObserver` for delayed render), shows an icon, click → matching
+      logins → fills. *(Live matches require unlocked live vault — wired with sync.)*
+- [x] **Security:** session state in `chrome.storage.session`; cache in
+      `chrome.storage.local`; auto-lock after 15 min via `chrome.alarms`; master
+      password never stored. Crypto primitives (PBKDF2/HKDF/AES-CBC+HMAC) built
+      and unit-tested against RFC known-answer vectors.
+- [ ] **Sync (live):** wire `bitwarden.js` — `POST /identity/connect/token` →
+      `GET /api/sync` → decrypt → live `vault.js`. Sync on unlock + every 5 min;
+      status in the footer. **Blocked on:** ADR 0001 decision + Phase 0 creds.
 - **Acceptance:** the framework's "Chrome Extension" checklist passes (loads
-  unpacked, unlocks, auto-fills a login page, new entry appears in the web vault
-  *and* in the iPhone app after sync).
+  unpacked ✅, unlocks ✅, demo flow ✅; live auto-fill + cross-device sync pending
+  live wiring).
 
 ### Phase 4 — Tailscale VPN integration
 Framework "Phase 4: Tailscale VPN Integration". Two sub-tracks.
