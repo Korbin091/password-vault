@@ -12,6 +12,7 @@
 
 import { session, local } from "./storage.js";
 import { _internal } from "./crypto.js";
+import * as bw from "./bitwarden.js";
 
 const SESSION_VAULT = "vault.items";     // decrypted items, session-only
 const SESSION_UNLOCKED = "vault.unlocked";
@@ -94,7 +95,6 @@ export async function unlock(masterPassword) {
 
   // LIVE MODE
   try {
-    const bw = await import("./bitwarden.js");
     const config = await getConfig();
     const { items, token, userKey } = await bw.unlockAndSync(masterPassword, config);
     await session.set(SESSION_VAULT, items);
@@ -113,7 +113,6 @@ export async function sync() {
   if (await isDemo()) return { ok: true, demo: true };
   if ((await session.get(SESSION_UNLOCKED)) !== true) return { ok: false, error: "locked" };
   try {
-    const bw = await import("./bitwarden.js");
     const config = await getConfig();
     const token = await session.get(SESSION_TOKEN);
     const stored = await session.get(SESSION_USERKEY);
@@ -183,7 +182,6 @@ export async function addItem(partial) {
 
   if (!(await isDemo())) {
     // LIVE MODE: encrypt + POST, then use the server's canonical cipher id/date.
-    const bw = await import("./bitwarden.js");
     const config = await getConfig();
     const token = await session.get(SESSION_TOKEN);
     const stored = await session.get(SESSION_USERKEY);
@@ -199,7 +197,6 @@ export async function addItem(partial) {
 }
 
 async function liveContext() {
-  const bw = await import("./bitwarden.js");
   const config = await getConfig();
   const token = await session.get(SESSION_TOKEN);
   const stored = await session.get(SESSION_USERKEY);
