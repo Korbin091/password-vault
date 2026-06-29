@@ -137,8 +137,6 @@ export async function decryptCipher(cipher, userKey) {
 /** Decrypt an entire sync payload into a list of items. */
 export async function decryptVault(sync, userKey) {
   const ciphers = sync.ciphers || sync.Ciphers || [];
-  console.log("[PV] sync keys:", Object.keys(sync));
-  console.log("[PV] cipher count:", ciphers.length);
   const items = [];
   for (const c of ciphers) {
     if (c.deletedDate || c.DeletedDate) continue;
@@ -148,18 +146,15 @@ export async function decryptVault(sync, userKey) {
       console.error("[PV] cipher decrypt failed:", c.id, e.message);
     }
   }
-  console.log("[PV] decrypted items:", items.length);
   return items;
 }
 
 /** Full unlock: auth -> sync -> derive key -> decrypt. Returns { items, userKey }. */
 export async function unlockAndSync(masterPassword, config) {
   const { kdf, iterations } = await prelogin(config);
-  console.log("[PV] kdf:", kdf, "iterations:", iterations, "email:", config.email);
   const token = await getToken(config);
   const sync = await fetchSync(token, config);
   const protectedKey = sync.profile?.key || sync.Profile?.Key;
-  console.log("[PV] protectedKey prefix:", protectedKey ? protectedKey.slice(0, 3) : "MISSING");
   if (!protectedKey) throw new Error("Sync response missing the protected user key.");
   const userKey = await deriveUserKey({ email: config.email, masterPassword, kdf, iterations, protectedKey });
   const items = await decryptVault(sync, userKey);
