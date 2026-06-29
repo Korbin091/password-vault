@@ -132,11 +132,18 @@ export async function decryptCipher(cipher, userKey) {
 /** Decrypt an entire sync payload into a list of items. */
 export async function decryptVault(sync, userKey) {
   const ciphers = sync.ciphers || sync.Ciphers || [];
+  console.log("[PV] sync keys:", Object.keys(sync));
+  console.log("[PV] cipher count:", ciphers.length);
   const items = [];
   for (const c of ciphers) {
-    if (c.deletedDate) continue;
-    items.push(await decryptCipher(c, userKey));
+    if (c.deletedDate || c.DeletedDate) continue;
+    try {
+      items.push(await decryptCipher(c, userKey));
+    } catch (e) {
+      console.error("[PV] cipher decrypt failed:", c.id, e.message);
+    }
   }
+  console.log("[PV] decrypted items:", items.length);
   return items;
 }
 
