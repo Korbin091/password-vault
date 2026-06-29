@@ -8,7 +8,7 @@
 
 import {
   makeMasterKey, stretchMasterKey, decryptUserKey,
-  decryptField, encryptField,
+  decryptField, encryptField, encryptEncString,
 } from "./crypto.js";
 
 const KDF_PBKDF2 = 0;
@@ -103,27 +103,32 @@ const dec = async (encString, userKey) => (encString ? decryptField(encString, u
 
 /** Decrypt one cipher into our shared item model. */
 export async function decryptCipher(cipher, userKey) {
+  // Newer Bitwarden accounts assign each cipher its own random key (encrypted
+  // with the user key). If cipher.key is present, decrypt it first and use it
+  // for all field decryption; otherwise fall back to the user key directly.
+  const key = cipher.key ? await decryptUserKey(cipher.key, userKey) : userKey;
+
   const type = CIPHER_TYPE[cipher.type] || "note";
   const item = {
     id: cipher.id,
     type,
-    name: await dec(cipher.name, userKey),
+    name: await dec(cipher.name, key),
     favorite: !!cipher.favorite,
-    notes: await dec(cipher.notes, userKey),
+    notes: await dec(cipher.notes, key),
     revisionDate: cipher.revisionDate,
   };
   if (type === "login" && cipher.login) {
-    item.username = await dec(cipher.login.username, userKey);
-    item.password = await dec(cipher.login.password, userKey);
+    item.username = await dec(cipher.login.username, key);
+    item.password = await dec(cipher.login.password, key);
     item.uris = [];
-    for (const u of cipher.login.uris || []) item.uris.push(await dec(u.uri, userKey));
+    for (const u of cipher.login.uris || []) item.uris.push(await dec(u.uri, key));
   } else if (type === "card" && cipher.card) {
     item.card = {
-      number: await dec(cipher.card.number, userKey),
-      brand: await dec(cipher.card.brand, userKey),
-      exp: [await dec(cipher.card.expMonth, userKey), await dec(cipher.card.expYear, userKey)]
+      number: await dec(cipher.card.number, key),
+      brand: await dec(cipher.card.brand, key),
+      exp: [await dec(cipher.card.expMonth, key), await dec(cipher.card.expYear, key)]
         .filter(Boolean).join("/"),
-      code: await dec(cipher.card.code, userKey),
+      code: await dec(cipher.card.code, key),
     };
   }
   return item;
@@ -161,18 +166,24 @@ export async function unlockAndSync(masterPassword, config) {
   return { items, token, userKey };
 }
 
-/** Encrypt a login item into a Bitwarden cipher payload. */
+/** Encrypt a login item into a Bitwarden cipher payload (with per-cipher key). */
 async function buildLoginPayload(item, userKey) {
+  // Generate a random 64-byte per-cipher key and encrypt it with the user key.
+  const rawCipherKey = crypto.getRandomValues(new Uint8Array(64));
+  const cipherKey = { encKey: rawCipherKey.slice(0, 32), macKey: rawCipherKey.slice(32, 64) };
+  const encryptedCipherKey = await encryptEncString(rawCipherKey, userKey.encKey, userKey.macKey);
+
   return {
     type: 1,
-    name: await encryptField(item.name, userKey),
-    notes: item.notes ? await encryptField(item.notes, userKey) : null,
+    key: encryptedCipherKey,
+    name: await encryptField(item.name, cipherKey),
+    notes: item.notes ? await encryptField(item.notes, cipherKey) : null,
     favorite: !!item.favorite,
     login: {
-      username: item.username ? await encryptField(item.username, userKey) : null,
-      password: item.password ? await encryptField(item.password, userKey) : null,
+      username: item.username ? await encryptField(item.username, cipherKey) : null,
+      password: item.password ? await encryptField(item.password, cipherKey) : null,
       uris: await Promise.all((item.uris || []).filter(Boolean).map(async (u) => ({
-        uri: await encryptField(u, userKey), match: null,
+        uri: await encryptField(u, cipherKey), match: null,
       }))),
     },
   };
