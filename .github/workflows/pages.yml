@@ -50,4 +50,4 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-# trigger: Pages enabled via Settings — deploy
+# trigger: env branch policy updated — deploy
