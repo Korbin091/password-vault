@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ────────────── Lock Screen ────────────── -->
+  <section id="screen-lock" class="screen">
+    <div class="lock-hero">
+      <div class="lock-logo">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 3L5 10v10c0 8.837 6.268 15.83 15 17 8.732-1.17 15-8.163 15-17V10L20 3z"
+            fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.55)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M14 19a6 6 0 1 1 12 0v1H14v-1z" fill="rgba(255,255,255,.85)"/>
+          <rect x="12" y="20" width="16" height="11" rx="2.5" fill="white"/>
+          <circle cx="20" cy="25.5" r="2" fill="rgba(108,71,255,.6)"/>
+        </svg>
+      </div>
+      <h1 class="lock-title">Password Vault</h1>
+      <p class="lock-sub" id="lock-subtitle">Unlock to access your passwords</p>
+    </div>
+
+    <form id="unlock-form" autocomplete="off">
+      <input id="master-password" type="password" placeholder="Master password"
+             autocomplete="off" autofocus />
+      <button type="submit" class="btn-primary">Unlock</button>
+      <p class="error" id="unlock-error" hidden></p>
+    </form>
+
+    <p class="demo-note" id="demo-note" hidden>
+      Demo mode — any password unlocks. Add API credentials in Settings for live sync.
+    </p>
+
+    <div class="lock-footer">
+      <button id="open-settings" class="btn-link">⚙ Settings</button>
+    </div>
+  </section>
+
+  <!-- ────────────── Settings ────────────── -->
+  <section id="screen-settings" class="screen" hidden>
+    <header class="topbar">
+      <button id="settings-back" class="topbar-back" title="Back">←</button>
+      <div class="topbar-brand"><span class="topbar-title">Settings</span></div>
+      <span></span>
+    </header>
+    <form id="settings-form" class="detail-body" autocomplete="off">
+      <p class="settings-section">Bitwarden API Key</p>
+      <p class="muted" style="font-size:12px;margin:0">
+        Bitwarden → Settings → Security → API Key
+      </p>
+      <div class="field"><label>Email</label><input id="cfg-email" type="email" autocomplete="off" /></div>
+      <div class="field"><label>Client ID</label><input id="cfg-clientid" autocomplete="off" placeholder="user.xxxxxxxx…" /></div>
+      <div class="field"><label>Client Secret</label>
+        <input id="cfg-clientsecret" type="password" autocomplete="off" placeholder="(leave blank to keep existing)" />
+      </div>
+      <div class="field">
+        <label>Server URL <span class="muted" style="font-weight:400;text-transform:none">(optional — self-hosted)</span></label>
+        <input id="cfg-server" type="url" placeholder="https://vault.example.com" />
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:4px">Save</button>
+      <button type="button" id="cfg-clear" class="btn-danger">Clear credentials (back to demo)</button>
+      <p class="error" id="settings-error" hidden></p>
+      <p class="settings-saved" id="settings-saved" hidden>
+        ✓ Saved. Lock and unlock with your master password to sync.
+      </p>
+
+      <p class="settings-section" style="margin-top:16px">Import Passwords</p>
+      <p class="muted" style="font-size:12px;margin:0">
+        Import from Aura, Chrome, Bitwarden, or any password manager that exports CSV.
+      </p>
+      <button type="button" id="open-import" class="btn-secondary" style="margin-top:10px">
+        ↑ Import from CSV
+      </button>
+    </form>
+  </section>
+
+  <!-- ────────────── Main (unlocked) ────────────── -->
+  <section id="screen-main" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <svg class="topbar-logo" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L4 6v6c0 5.3 3.7 9.5 8 11 4.3-1.5 8-5.7 8-11V6l-8-4z"
+            fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M9 11a3 3 0 1 1 6 0v.5H9V11z" fill="rgba(255,255,255,.85)"/>
+          <rect x="8" y="11.5" width="8" height="5.5" rx="1.2" fill="white"/>
+        </svg>
+        <span class="topbar-title">Vault <span id="demo-badge" class="badge" hidden>DEMO</span></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="btn-sync" class="btn-icon btn-icon-nav" title="Sync now">⟳</button>
+        <button id="btn-lock" class="btn-icon btn-icon-nav" title="Lock vault">🔒</button>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="vault">Vault</button>
+      <button class="tab" data-tab="generator">Generator</button>
+    </nav>
+
+    <!-- Vault tab -->
+    <div id="tab-vault" class="tab-panel">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input id="search" type="search" placeholder="Search passwords…" />
+      </div>
+      <div class="filters" id="filters">
+        <button class="chip active" data-cat="all">All</button>
+        <button class="chip" data-cat="login">Logins</button>
+        <button class="chip" data-cat="card">Cards</button>
+        <button class="chip" data-cat="note">Notes</button>
+      </div>
+      <ul id="item-list" class="item-list"></ul>
+      <div class="vault-footer">
+        <button id="btn-add" class="btn-primary">+ Add password</button>
+        <button id="btn-import-quick" class="btn-secondary-icon" title="Import CSV">↑</button>
+      </div>
+    </div>
+
+    <!-- Generator tab -->
+    <div id="tab-generator" class="tab-panel" hidden>
+      <div class="gen-output">
+        <code id="gen-value">&nbsp;</code>
+        <button id="gen-copy" class="btn-icon" title="Copy">📋</button>
+        <button id="gen-refresh" class="btn-icon" title="Regenerate">🔄</button>
+      </div>
+      <p class="strength"><span id="gen-strength">—</span></p>
+      <div class="gen-row">
+        <span>Length</span>
+        <span id="gen-len-val">20</span>
+        <input id="gen-length" type="range" min="4" max="128" value="20" />
+      </div>
+      <label class="gen-row"><input id="gen-upper" type="checkbox" checked /> Uppercase (A–Z)</label>
+      <label class="gen-row"><input id="gen-lower" type="checkbox" checked /> Lowercase (a–z)</label>
+      <label class="gen-row"><input id="gen-numbers" type="checkbox" checked /> Numbers (0–9)</label>
+      <label class="gen-row"><input id="gen-symbols" type="checkbox" checked /> Symbols (!@#…)</label>
+      <label class="gen-row"><input id="gen-ambiguous" type="checkbox" checked /> Avoid ambiguous (l I O 0 1)</label>
+    </div>
+
+    <footer class="statusbar">
+      <span id="sync-status">—</span>
+    </footer>
+  </section>
+
+  <!-- ────────────── Detail View ────────────── -->
+  <section id="screen-detail" class="screen" hidden>
+    <header class="topbar">
+      <button id="detail-back" class="topbar-back" title="Back">←</button>
+      <div class="topbar-brand"><span class="topbar-title" id="detail-title">Item</span></div>
+      <span></span>
+    </header>
+    <div id="detail-body" class="detail-body"></div>
+  </section>
+
+  <!-- ────────────── Add / Edit Form ────────────── -->
+  <section id="screen-add" class="screen" hidden>
+    <header class="topbar">
+      <button id="add-back" class="topbar-back" title="Back">←</button>
+      <div class="topbar-brand"><span class="topbar-title" id="add-title">Add password</span></div>
+      <span></span>
+    </header>
+    <form id="add-form" class="detail-body" autocomplete="off">
+      <div class="field"><label>Name *</label><input id="add-name" required placeholder="e.g. GitHub" /></div>
+      <div class="field"><label>Website URL</label><input id="add-uri" type="url" placeholder="https://" /></div>
+      <div class="field"><label>Username / Email</label><input id="add-username" autocomplete="off" /></div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-row">
+          <input id="add-password" type="text" autocomplete="off" />
+          <button type="button" id="add-gen" class="btn-icon" title="Generate password">🎲</button>
+        </div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="add-notes" rows="3"></textarea></div>
+      <button type="submit" class="btn-primary">Save</button>
+      <p class="error" id="add-error" hidden></p>
+    </form>
+  </section>
+
+  <!-- ────────────── Import Screen ────────────── -->
+  <section id="screen-import" class="screen" hidden>
+    <header class="topbar">
+      <button id="import-back" class="topbar-back" title="Back">←</button>
+      <div class="topbar-brand"><span class="topbar-title">Import Passwords</span></div>
+      <span></span>
+    </header>
+    <div class="detail-body">
+      <div class="import-zone" id="import-zone">
+        <div class="import-zone-icon">📂</div>
+        <h3>Drop your CSV file here</h3>
+        <p>Or click to select — works with Aura, Chrome, Bitwarden, 1Password, LastPass</p>
+        <input type="file" id="import-file" accept=".csv,text/csv" style="display:none" />
+      </div>
+
+      <div id="import-preview" hidden>
+        <div class="import-preview-card">
+          Found <span id="import-count" class="import-count">0</span> passwords ready to import
+          <div id="import-preview-list"></div>
+        </div>
+        <button id="import-go" class="btn-primary" style="margin-top:10px">Import All</button>
+        <button id="import-cancel" class="btn-ghost" style="width:100%;margin-top:6px">Cancel</button>
+      </div>
+
+      <div id="import-progress" hidden class="import-progress"></div>
+
+      <div class="import-help">
+        <strong>How to export from Aura:</strong><br>
+        Aura app → Settings → Privacy &amp; Security → Export → Passwords → Save as CSV
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="popup.js"></script>
+</body>
+</html>
