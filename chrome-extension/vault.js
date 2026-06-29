@@ -19,6 +19,7 @@ const SESSION_UNLOCKED = "vault.unlocked";
 const SESSION_LASTSYNC = "vault.lastSync";
 const SESSION_USERKEY = "vault.userKey";  // {encKey,macKey} base64 — session-only
 const SESSION_TOKEN = "vault.token";      // access token — session-only
+const LOCAL_RECENTS = "vault.recents";   // array of up to 5 recently viewed item IDs
 
 const { bytesToB64, b64ToBytes } = _internal;
 
@@ -38,9 +39,15 @@ export async function saveConfig(cfg) {
     clientSecret: hasSecret ? (cfg.clientSecret || "").trim() : (existing.clientSecret || ""),
     email: (cfg.email || "").trim(),
     server: (cfg.server || "").trim() || null,
+    lockMinutes: Number(cfg.lockMinutes) || 15,
   };
   await local.set("config", clean);
   return clean;
+}
+
+export async function getLockMinutes() {
+  const cfg = (await local.get("config")) || {};
+  return Number(cfg.lockMinutes) || 15;
 }
 
 const DEMO_ITEMS = [
@@ -139,21 +146,40 @@ async function requireUnlocked() {
   return (await session.get(SESSION_VAULT)) || [];
 }
 
-/** List items, optionally filtered by category ('all'|'login'|'card'|'note') and query. */
+/** List items, optionally filtered by category ('all'|'login'|'card'|'note') and query.
+ *  Favorites always float to the top; within that, alphabetical. */
 export async function listItems({ category = "all", query = "" } = {}) {
   const items = await requireUnlocked();
   const q = query.trim().toLowerCase();
-  return items.filter((it) => {
+  const filtered = items.filter((it) => {
     if (category !== "all" && it.type !== category) return false;
     if (!q) return true;
     return [it.name, it.username, ...(it.uris || [])]
       .filter(Boolean).some((s) => s.toLowerCase().includes(q));
   });
+  filtered.sort((a, b) => {
+    if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+  return filtered;
+}
+
+async function trackRecent(id) {
+  const existing = (await local.get(LOCAL_RECENTS)) || [];
+  await local.set(LOCAL_RECENTS, [id, ...existing.filter((r) => r !== id)].slice(0, 5));
+}
+
+export async function getRecentItems() {
+  const items = await requireUnlocked();
+  const ids = (await local.get(LOCAL_RECENTS)) || [];
+  return ids.map((id) => items.find((it) => it.id === id)).filter(Boolean);
 }
 
 export async function getItem(id) {
   const items = await requireUnlocked();
-  return items.find((it) => it.id === id) || null;
+  const item = items.find((it) => it.id === id) || null;
+  if (item) await trackRecent(id);
+  return item;
 }
 
 /** Logins whose URIs match the given page URL's host (for auto-fill). */

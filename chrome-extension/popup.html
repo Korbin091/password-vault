@@ -62,13 +62,26 @@
         <label>Server URL <span class="muted" style="font-weight:400;text-transform:none">(optional — self-hosted)</span></label>
         <input id="cfg-server" type="url" placeholder="https://vault.example.com" />
       </div>
+
+      <p class="settings-section" style="margin-top:8px">Security</p>
+      <div class="field">
+        <label>Auto-lock after</label>
+        <select id="cfg-lock-minutes">
+          <option value="5">5 minutes</option>
+          <option value="15" selected>15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">1 hour</option>
+          <option value="480">8 hours</option>
+          <option value="0">Never (not recommended)</option>
+        </select>
+      </div>
+
       <button type="submit" class="btn-primary" style="margin-top:4px">Save</button>
       <button type="button" id="cfg-clear" class="btn-danger">Clear credentials (back to demo)</button>
       <p class="error" id="settings-error" hidden></p>
       <p class="settings-saved" id="settings-saved" hidden>
         ✓ Saved. Lock and unlock with your master password to sync.
       </p>
-
     </form>
   </section>
 
@@ -93,6 +106,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="vault">Vault</button>
       <button class="tab" data-tab="generator">Generator</button>
+      <button class="tab" data-tab="health">Health</button>
     </nav>
 
     <!-- Vault tab -->
@@ -106,6 +120,11 @@
         <button class="chip" data-cat="login">Logins</button>
         <button class="chip" data-cat="card">Cards</button>
         <button class="chip" data-cat="note">Notes</button>
+      </div>
+      <div id="recents-section" hidden>
+        <p class="section-label">Recent</p>
+        <ul id="recents-list" class="item-list" style="margin-bottom:4px"></ul>
+        <p class="section-label">All</p>
       </div>
       <ul id="item-list" class="item-list"></ul>
       <div class="vault-footer">
@@ -131,6 +150,20 @@
       <label class="gen-row"><input id="gen-numbers" type="checkbox" checked /> Numbers (0–9)</label>
       <label class="gen-row"><input id="gen-symbols" type="checkbox" checked /> Symbols (!@#…)</label>
       <label class="gen-row"><input id="gen-ambiguous" type="checkbox" checked /> Avoid ambiguous (l I O 0 1)</label>
+    </div>
+
+    <!-- Health tab -->
+    <div id="tab-health" class="tab-panel" hidden>
+      <div class="health-score-card">
+        <div class="health-score-ring">
+          <span id="health-score-num">—</span>
+        </div>
+        <div class="health-score-meta">
+          <div class="health-score-label">Security Score</div>
+          <div class="health-score-sub" id="health-score-sub">Open vault to analyze</div>
+        </div>
+      </div>
+      <div id="health-sections"></div>
     </div>
 
     <footer class="statusbar">

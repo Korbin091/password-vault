@@ -120,6 +120,7 @@ export async function decryptCipher(cipher, userKey) {
   if (type === "login" && cipher.login) {
     item.username = await dec(cipher.login.username, key);
     item.password = await dec(cipher.login.password, key);
+    item.totp     = cipher.login.totp ? await dec(cipher.login.totp, key) : "";
     item.uris = [];
     for (const u of cipher.login.uris || []) item.uris.push(await dec(u.uri, key));
   } else if (type === "card" && cipher.card) {

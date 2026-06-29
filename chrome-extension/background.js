@@ -9,12 +9,13 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 
 const AUTO_LOCK_ALARM = "auto-lock";
 const SYNC_ALARM = "periodic-sync";
-const AUTO_LOCK_MINUTES = 15; // see ../docs/security-model.md
-const SYNC_MINUTES = 5;       // framework: sync every 5 min while unlocked
+const SYNC_MINUTES = 5;
 
 async function armAutoLock() {
+  const minutes = await vault.getLockMinutes();
   await chrome.alarms.clear(AUTO_LOCK_ALARM);
-  chrome.alarms.create(AUTO_LOCK_ALARM, { delayInMinutes: AUTO_LOCK_MINUTES });
+  if (minutes === 0) return; // "never" option
+  chrome.alarms.create(AUTO_LOCK_ALARM, { delayInMinutes: minutes });
 }
 
 async function armPeriodicSync() {
@@ -26,10 +27,17 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === AUTO_LOCK_ALARM) {
     await vault.lock();
     await chrome.alarms.clear(SYNC_ALARM);
-    // TODO(Phase 4): if a Tailscale proxy is active, clear it here too.
   } else if (alarm.name === SYNC_ALARM) {
     const { unlocked, demo } = await vault.getState();
     if (unlocked && !demo) await vault.sync().catch(() => {});
+  }
+});
+
+// Keyboard shortcut: Ctrl+Shift+L / Cmd+Shift+L opens side panel
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === "open-vault") {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
   }
 });
 
@@ -59,13 +67,27 @@ const handlers = {
 
   async getConfig() {
     const c = await vault.getConfig();
-    return { ok: true, config: { clientId: c.clientId || "", email: c.email || "", server: c.server || "", hasSecret: !!c.clientSecret } };
+    return {
+      ok: true,
+      config: {
+        clientId: c.clientId || "",
+        email: c.email || "",
+        server: c.server || "",
+        lockMinutes: c.lockMinutes ?? 15,
+        hasSecret: !!c.clientSecret,
+      },
+    };
   },
 
   async saveConfig({ config }) { await vault.saveConfig(config); return { ok: true }; },
 
   async listItems({ category, query }) {
     try { return { ok: true, items: await vault.listItems({ category, query }) }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  },
+
+  async getRecentItems() {
+    try { return { ok: true, items: await vault.getRecentItems() }; }
     catch (e) { return { ok: false, error: e.message }; }
   },
 
@@ -106,8 +128,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   const handler = handlers[msg?.type];
   if (!handler) { sendResponse({ ok: false, error: `Unknown message: ${msg?.type}` }); return false; }
-  // Reschedule auto-lock on every authenticated interaction (except state polls).
   if (msg.type !== "getState") touch();
   handler(msg, sender).then(sendResponse).catch((e) => sendResponse({ ok: false, error: e.message }));
-  return true; // async response
+  return true;
 });

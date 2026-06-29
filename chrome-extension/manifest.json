@@ -46,6 +46,15 @@
     "https://api.bitwarden.com/*",
     "https://identity.bitwarden.com/*"
   ],
+  "commands": {
+    "open-vault": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Open Password Vault"
+    }
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }
