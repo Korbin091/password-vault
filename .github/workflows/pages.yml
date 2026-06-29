@@ -50,4 +50,4 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-# trigger: repo is now public — deploy Pages
+# trigger: Pages enabled via Settings — deploy
